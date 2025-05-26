@@ -84,7 +84,7 @@ const UploadPage = () => {
     setParsedDTRs([]);
 
     try {
-      const res = await axios.post('http://localhost:8000/ocr', formData, {
+      const res = await axios.post('https://backend-1-0wrl.onrender.com/ocr', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -161,7 +161,7 @@ const UploadPage = () => {
     const selectedMonth = dtr.month;
 
     try {
-      await axios.post('http://localhost:8000/compute_salary', {
+      await axios.post('https://backend-1-0wrl.onrender.com/compute_salary', {
         username,
         month_str: selectedMonth
       });
