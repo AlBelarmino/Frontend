@@ -36,7 +36,7 @@ const RecordsPage = () => {
         setError(null);
 
         const response = await axios.get(
-          `https://backend-1-0wrl.onrender.com/api/records?username=${username}`
+          `https://backend2-2szh.onrender.com/api/records?username=${username}`
         );
 
         const formatted = response.data.map((item) => ({
