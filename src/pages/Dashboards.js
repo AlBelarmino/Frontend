@@ -15,8 +15,8 @@ const Dashboard = () => {
       try {
         setLoading(true);
         const [infoRes, payslipRes] = await Promise.all([
-          axios.get(`http://localhost:8000/payslip/latest`, { params: { username } }),
-          axios.get(`http://localhost:8000/payslip/latest`, { params: { username } })
+          axios.get(`https://backend2-2szh.onrender.com/payslip/latest`, { params: { username } }),
+          axios.get(`https://backend2-2szh.onrender.com/payslip/latest`, { params: { username } })
         ]);
         
         setUserInfo(infoRes.data);
