@@ -217,7 +217,7 @@ const ReportsPage = () => {
   useEffect(() => {
     const fetchAvailableMonths = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/available-months', {
+        const response = await axios.get('https://backend-1-0wrl.onrender.com/available-months', {
           params: { username }
         });
         setAvailableMonths(response.data);
@@ -240,7 +240,7 @@ const ReportsPage = () => {
       try {
         if (selectedMonths.length === 1) {
           const [month, year] = selectedMonths[0].split('-');
-          const response = await axios.get('http://localhost:8000/payslip', {
+          const response = await axios.get('https://backend-1-0wrl.onrender.com/payslip', {
             params: {
               username,
               month,
@@ -249,7 +249,7 @@ const ReportsPage = () => {
           });
           setPayslip(response.data);
         } else {
-          const response = await axios.post('http://localhost:8000/api/payslip/summary', {
+          const response = await axios.post('https://backend-1-0wrl.onrender.com/api/payslip/summary', {
             username,
             selected_months: selectedMonths.map(m => {
               const [month, year] = m.split('-');
@@ -280,7 +280,7 @@ const ReportsPage = () => {
   const getPayslipInsights = async (payslipData) => {
     try {
       setGeneratingInsights(true);
-      const response = await axios.post('http://localhost:8000/api/insights/generate', {
+      const response = await axios.post('https://backend-1-0wrl.onrender.com/api/insights/generate', {
         payslip_data: payslipData,
         analysis_type: "standard",
       }, {
