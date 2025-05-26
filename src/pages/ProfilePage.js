@@ -52,7 +52,7 @@ const ProfilePage = () => {
         }
 
         console.log('Fetching profile for username:', username);
-        const response = await axios.get('https://backend-1-0wrl.onrender.com/api/user/profile', {
+        const response = await axios.get('https://backend2-2szh.onrender.com/api/user/profile', {
           params: { username }
         });
 
@@ -211,7 +211,7 @@ const ProfilePage = () => {
         payload.password = userData.password;
       }
 
-      await axios.put('https://backend-1-0wrl.onrender.com/api/user/profile', payload);
+      await axios.put('https://backend2-2szh.onrender.com/api/user/profile', payload);
 
       setSuccessMessage('Profile updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
