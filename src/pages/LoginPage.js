@@ -21,7 +21,7 @@ const LoginPage = ({ setIsAuthenticated }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const navigate = useNavigate();
-  const apiBaseUrl = 'http://localhost:8000';
+  const apiBaseUrl = 'https://backend-1-0wrl.onrender.com';
 
   const handleLogin = async (e) => {
   e.preventDefault();
