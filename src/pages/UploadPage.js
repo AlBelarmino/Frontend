@@ -84,7 +84,7 @@ const UploadPage = () => {
     setParsedDTRs([]);
 
     try {
-      const res = await axios.post('https://backend2-2szh.onrender.com/ocr', formData, {
+      const res = await axios.post('https://backend2-2szh.onrender.com', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -151,30 +151,31 @@ const UploadPage = () => {
     return value.toString();
   };
 
-  const computeSalary = async (dtr) => {
-    const storedUser = localStorage.getItem('user');
-    if (!storedUser) {
-      toast.error('Login required to compute salary.');
-      return;
-    }
-    const { username } = JSON.parse(storedUser);
-    const selectedMonth = dtr.month;
+  const computeAllSalaries = async () => {
+  const storedUser = localStorage.getItem('user');
+  if (!storedUser) {
+    toast.error('Login required to compute salary.');
+    return;
+  }
+  const { username } = JSON.parse(storedUser);
 
-    try {
+  try {
+    for (const dtr of parsedDTRs) {
       await axios.post('https://backend2-2szh.onrender.com/compute_salary', {
         username,
-        month_str: selectedMonth
+        month_str: dtr.month
       });
-
-      toast.success('Salary computed successfully! Redirecting to Reports...');
-      setTimeout(() => {
-        window.location.href = '/reports';
-      }, 2000);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to compute salary.');
     }
-  };
+
+    toast.success('All salaries computed successfully! Redirecting to Reports...');
+    setTimeout(() => {
+      window.location.href = '/reports';
+    }, 2000);
+  } catch (err) {
+    console.error(err);
+    toast.error('Failed to compute all salaries.');
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -391,15 +392,15 @@ const UploadPage = () => {
                         </table>
                       </div>
                       
-                      <div className="mt-6 flex justify-center">
-                        <button
-                          onClick={() => computeSalary(dtr)}
-                          className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
-                        >
-                          <Calculator className="w-5 h-5" />
-                          Compute Salary
-                        </button>
-                      </div>
+                      <div className="mt-10 flex justify-center">
+                      <button
+                        onClick={computeAllSalaries}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                      >
+                        <Calculator className="w-5 h-5" />
+                        Compute All Salaries
+                      </button>
+                    </div>
                     </div>
                   )}
                 </div>
