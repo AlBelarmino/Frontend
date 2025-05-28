@@ -84,7 +84,7 @@ const UploadPage = () => {
     setParsedDTRs([]);
 
     try {
-      const res = await axios.post('https://backend2-2szh.onrender.com', formData, {
+      const res = await axios.post('https://backend2-2szh.onrender.com/ocr', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
