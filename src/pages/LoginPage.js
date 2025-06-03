@@ -117,7 +117,7 @@ const LoginPage = ({ setIsAuthenticated }) => {
 
       <div className="relative w-full max-w-md bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-8 z-10">
         <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">
-          {isRegistering ? 'Create Account' : 'Welcome Back'}
+          {isRegistering ? 'Create Account' : 'Welcome'}
         </h2>
         <p className="text-center text-gray-600 mb-6">
           {isRegistering ? 'Join Payslip Processor today' : 'Sign in to your account'}
