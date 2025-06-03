@@ -3,7 +3,9 @@ import axios from 'axios';
 import { Search, Calendar, TrendingDown, TrendingUp } from 'lucide-react';
 
 const RecordsPage = () => {
-  const username = localStorage.getItem('username');
+  const storedUser = JSON.parse(localStorage.getItem('user'));
+  const username = storedUser?.username;
+
   const [records, setRecords] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [summary, setSummary] = useState('');
@@ -19,14 +21,6 @@ const RecordsPage = () => {
     }).format(amount || 0);
 
   // Parse YYYY-MM to display month/year
-  const parseMonthYear = (period) => {
-    const [year, month] = period.split('-');
-    const date = new Date(year, month - 1);
-    return {
-      monthName: date.toLocaleString('default', { month: 'long' }),
-      year: year,
-    };
-  };
 
   // Fetch records
   useEffect(() => {
@@ -41,7 +35,7 @@ const RecordsPage = () => {
 
         const formatted = response.data.map((item) => ({
           period: item.period,
-          displayMonth: item.displayMonth || `${parseMonthYear(item.period).monthName} ${parseMonthYear(item.period).year}`,
+          displayMonth: item.displayMonth,
           gross_income: item.gross_income,
           total_deductions: item.total_deductions,
           net_income: item.net_income,
