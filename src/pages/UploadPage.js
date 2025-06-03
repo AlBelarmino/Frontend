@@ -151,19 +151,22 @@ const UploadPage = () => {
     return value.toString();
   };
 
-  const computeAllSalaries = async () => {
+const computeAllSalaries = async () => {
   const storedUser = localStorage.getItem('user');
   if (!storedUser) {
     toast.error('Login required to compute salary.');
     return;
   }
+
   const { username } = JSON.parse(storedUser);
 
   try {
     for (const dtr of parsedDTRs) {
       await axios.post('https://backend2-2szh.onrender.com/compute_salary', {
         username,
-        month_str: dtr.month
+        month_str: dtr.month,
+        period_start: dtr.period_start,
+        period_end: dtr.period_end
       });
     }
 
@@ -344,55 +347,71 @@ const UploadPage = () => {
 
         {/* Parsed DTR Data */}
         {parsedDTRs.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-            <div className="p-6">
-              <h3 className="text-xl font-bold text-slate-800 mb-6">Extracted DTR Information</h3>
-              
-              {parsedDTRs.map((dtr, index) => (
-                <div key={index} className="space-y-6">
-                  <div className="bg-slate-50 rounded-xl p-4">
-                    <h4 className="text-lg font-semibold text-slate-800 mb-4">DTR {index + 1}</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(dtr).filter(([key]) => key !== 'dailyRecords').map(([key, value]) => (
-                        <div key={key} className="flex justify-between py-2 border-b border-slate-200 last:border-b-0">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="p-6">
+            <h3 className="text-xl font-bold text-slate-800 mb-6">Extracted DTR Information</h3>
+            
+            {parsedDTRs.map((dtr, index) => (
+              <div key={index} className="space-y-6">
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <h4 className="text-lg font-semibold text-slate-800 mb-4">DTR {index + 1}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Payroll Period Row */}
+                    <div className="flex justify-between py-2 border-b border-slate-200">
+                      <span className="font-medium text-slate-600">Payroll Period:</span>
+                      <span className="text-slate-800">
+                        {`${dtr.month} ${dtr.period_start}–${dtr.period_end}, ${dtr.year}`}
+                      </span>
+                    </div>
+
+                    {/* Other Fields */}
+                    {Object.entries(dtr)
+                      .filter(([key]) =>
+                        !['dailyRecords', 'month', 'year', 'period_start', 'period_end'].includes(key)
+                      )
+                      .map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="flex justify-between py-2 border-b border-slate-200 last:border-b-0"
+                        >
                           <span className="font-medium text-slate-600 capitalize">
                             {key.replace(/([A-Z])/g, ' $1').trim()}:
                           </span>
                           <span className="text-slate-800">{renderValue(value)}</span>
                         </div>
                       ))}
-                    </div>
                   </div>
+                </div>
 
-                  {dtr.dailyRecords && dtr.dailyRecords.length > 0 && (
-                    <div>
-                      <h5 className="text-lg font-semibold text-slate-800 mb-4">Daily Records</h5>
-                      <div className="overflow-x-auto">
-                        <table className="w-full border border-slate-200 rounded-xl overflow-hidden">
-                          <thead className="bg-slate-100">
-                            <tr>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700">Day</th>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700">AM Arrival</th>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700">AM Departure</th>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700">PM Arrival</th>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700">PM Departure</th>
+                {dtr.dailyRecords && dtr.dailyRecords.length > 0 && (
+                  <div>
+                    <h5 className="text-lg font-semibold text-slate-800 mb-4">Daily Records</h5>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border border-slate-200 rounded-xl overflow-hidden">
+                        <thead className="bg-slate-100">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">Day</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">AM Arrival</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">AM Departure</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">PM Arrival</th>
+                            <th className="px-4 py-3 text-left font-semibold text-slate-700">PM Departure</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dtr.dailyRecords.map((record, idx) => (
+                            <tr key={idx} className="border-t border-slate-200 hover:bg-slate-50">
+                              <td className="px-4 py-3 font-medium text-slate-800">{record.day}</td>
+                              <td className="px-4 py-3 text-slate-600">{record.am_arrival || 'N/A'}</td>
+                              <td className="px-4 py-3 text-slate-600">{record.am_departure || 'N/A'}</td>
+                              <td className="px-4 py-3 text-slate-600">{record.pm_arrival || 'N/A'}</td>
+                              <td className="px-4 py-3 text-slate-600">{record.pm_departure || 'N/A'}</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {dtr.dailyRecords.map((record, idx) => (
-                              <tr key={idx} className="border-t border-slate-200 hover:bg-slate-50">
-                                <td className="px-4 py-3 font-medium text-slate-800">{record.day}</td>
-                                <td className="px-4 py-3 text-slate-600">{record.am_arrival || 'N/A'}</td>
-                                <td className="px-4 py-3 text-slate-600">{record.am_departure || 'N/A'}</td>
-                                <td className="px-4 py-3 text-slate-600">{record.pm_arrival || 'N/A'}</td>
-                                <td className="px-4 py-3 text-slate-600">{record.pm_departure || 'N/A'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div className="mt-10 flex justify-center">
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mt-10 flex justify-center">
                       <button
                         onClick={computeAllSalaries}
                         className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
@@ -401,13 +420,13 @@ const UploadPage = () => {
                         Compute All Salaries
                       </button>
                     </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
         {/* Toast Container */}
         <div className="fixed top-20 right-4 z-[1100] space-y-2">
