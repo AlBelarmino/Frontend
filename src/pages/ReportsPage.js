@@ -3,16 +3,17 @@ import axios from 'axios';
 import { Calendar, FileText, Download, Clock, DollarSign, TrendingUp, Building, Calculator, Eye, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 
 const generatePayslipPDF = (payslipData, formatCurrency) => {
+  
   return `
     <div style="padding: 20px; font-family: Arial, sans-serif;">
       <!-- Header -->
       <div style="text-align: center; margin-bottom: 20px;">
         <h1 style="margin: 0;">${payslipData.fullName}</h1>
-        <p>${payslipData.period}</p>
       </div>
 
       <!-- Left Info Section -->
       <div style="margin-bottom: 20px;">
+        <p><strong>Payroll Period:</strong> ${payslipData.period}</p>
         <p><strong>Employment Type:</strong> ${payslipData.employmentType.charAt(0).toUpperCase() + payslipData.employmentType.slice(1)}</p>
         ${payslipData.employmentType === "regular"
         ? `<p><strong>Salary Grade:</strong> ${payslipData.salaryGrade || ''}</p>`
@@ -24,52 +25,72 @@ const generatePayslipPDF = (payslipData, formatCurrency) => {
         }
       </div>
 
-      <!-- Earnings Table -->
-      <div style="margin-bottom: 20px;">
-        <h3 style="border-bottom: 1px solid #000;">Earnings</h3>
-        <table style="width: 100%;">
+      <!-- Combined Earnings and Deductions Table -->
+      <div style="margin-bottom: 30px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: #f2f2f2;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #ccc;">Earnings</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #ccc;">Amount</th>
+              <th style="padding: 8px; text-align: left; border: 1px solid #ccc;">Deductions</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #ccc;">Amount</th>
+            </tr>
+          </thead>
           <tbody>
             ${
-              payslipData.employmentType === "regular"
-                ? `<tr><td>Basic</td><td style="text-align: right;">${formatCurrency(payslipData.ratePerMonth)}</td></tr>`
-                : `<tr><td>Hourly Rate</td><td style="text-align: right;">${formatCurrency(payslipData.ratePerHour)}</td></tr>`
+              // Calculate the maximum number of rows
+              Array.from({
+                length: Math.max(
+                  payslipData.employmentType === 'regular' ? 1 + (payslipData.bonuses?.length || 0) : 1 + (payslipData.bonuses?.length || 0),
+                  payslipData.deductions?.length || 0
+                )
+              }).map((_, i) => {
+                const earningLabel = i === 0
+                  ? (payslipData.employmentType === 'regular' ? 'Basic' : 'Hourly Rate')
+                  : payslipData.bonuses?.[i - 1]?.label || '';
+                const earningAmount = i === 0
+                  ? formatCurrency(payslipData.employmentType === 'regular' ? payslipData.ratePerMonth : payslipData.ratePerHour)
+                  : payslipData.bonuses?.[i - 1]?.amount
+                    ? formatCurrency(payslipData.bonuses[i - 1].amount)
+                    : '';
+
+                const deduction = payslipData.deductions?.[i];
+                const deductionLabel = deduction?.label || '';
+                const deductionAmount = deduction?.amount !== undefined ? formatCurrency(deduction.amount) : '';
+
+                return `
+                  <tr>
+                    <td style="padding: 6px; border: 1px solid #ccc;">${earningLabel}</td>
+                    <td style="padding: 6px; text-align: right; border: 1px solid #ccc;">${earningAmount}</td>
+                    <td style="padding: 6px; border: 1px solid #ccc;">${deductionLabel}</td>
+                    <td style="padding: 6px; text-align: right; border: 1px solid #ccc;">${deductionAmount}</td>
+                  </tr>
+                `;
+              }).join('')
             }
-            ${payslipData.bonuses?.map(bonus => (
-              `<tr><td>${bonus.label}</td><td style="text-align: right;">${formatCurrency(bonus.amount)}</td></tr>`
-            )).join('')}
-            <tr><td><strong>Total Earnings</strong></td><td style="text-align: right;"><strong>${formatCurrency(payslipData.grossIncome)}</strong></td></tr>
+            <tr>
+              <td style="padding: 6px; font-weight: bold; border: 1px solid #ccc;">Total Earnings</td>
+              <td style="padding: 6px; text-align: right; font-weight: bold; border: 1px solid #ccc;">${formatCurrency(payslipData.grossIncome)}</td>
+              <td style="padding: 6px; font-weight: bold; border: 1px solid #ccc;">Total Deductions</td>
+              <td style="padding: 6px; text-align: right; font-weight: bold; border: 1px solid #ccc;">${formatCurrency(payslipData.deductions.reduce((sum, d) => sum + d.amount, 0))}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding: 10px; font-size: 16px; font-weight: bold; text-align: center; border: 1px solid #ccc;">Net Pay</td>
+              <td colspan="2" style="padding: 10px; font-size: 16px; font-weight: bold; text-align: right; border: 1px solid #ccc;">${formatCurrency(payslipData.netPay)}</td>
+            </tr>
           </tbody>
         </table>
       </div>
 
-      <!-- Deductions Table -->
-      <div style="margin-bottom: 20px;">
-        <h3 style="border-bottom: 1px solid #000;">Deductions</h3>
-        <table style="width: 100%;">
-          <tbody>
-            ${payslipData.deductions?.length > 0 ? (
-              payslipData.deductions.map(ded => (
-                `<tr><td>${ded.label}</td><td style="text-align: right;">${formatCurrency(ded.amount)}</td></tr>`
-              )).join('') + 
-              `<tr><td><strong>Total Deductions</strong></td><td style="text-align: right;"><strong>${formatCurrency(payslipData.deductions.reduce((sum, d) => sum + d.amount, 0))}</strong></td></tr>`
-            ) : `<tr><td>No deductions this period</td><td style="text-align: right;">-</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Net Pay -->
-      <div style="text-align: center; margin-bottom: 20px;">
-        <p style="font-size: 20px; font-weight: bold;">Net Pay: ${formatCurrency(payslipData.netPay)}</p>
-      </div>
   `;
 };
 
 const generateSummaryPDF = (summaryData, formatCurrency) => {
-  const months = summaryData.months?.join(', ');
-  const monthCount = summaryData.months?.length || 0;
+  const periods = summaryData.periods?.join(', ') || '';
+  const periodCount = summaryData.periods?.length || 0;
   
-  // Compact layout for 1-3 months
-  if (monthCount <= 3) {
+  // Compact layout for 1-3 periods
+  if (periodCount <= 3) {
     return `
       <html>
         <head>
@@ -149,10 +170,10 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
             <div class="employee-info">
               ${summaryData.fullName}<br>
               ${summaryData.employmentType.charAt(0).toUpperCase() + summaryData.employmentType.slice(1)} Employee | Grade ${summaryData.salaryGrade}<br>
-              Period: ${months}
+              Period: ${periods}
             </div>
 
-            <h2>Monthly Summary</h2>
+            <h2>Period Summary</h2>
             <table>
               <thead>
                 <tr>
@@ -163,9 +184,9 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
                 </tr>
               </thead>
               <tbody>
-                ${Object.entries(summaryData.monthlySummary).map(([period, data]) => `
+                ${Object.entries(summaryData.periodSummary).map(([period, data]) => `
                   <tr>
-                    <td>${period.replace('-', ' ')}</td>
+                    <td>${period}</td>
                     <td class="text-right">${formatCurrency(data.gross_income)}</td>
                     <td class="text-right">${formatCurrency(data.total_deductions)}</td>
                     <td class="text-right">${formatCurrency(data.net_income)}</td>
@@ -173,9 +194,9 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
                 `).join('')}
                 <tr class="total-row">
                   <td>TOTAL</td>
-                  <td class="text-right">${formatCurrency(Object.values(summaryData.monthlySummary).reduce((sum, d) => sum + d.gross_income, 0))}</td>
-                  <td class="text-right">${formatCurrency(Object.values(summaryData.monthlySummary).reduce((sum, d) => sum + d.total_deductions, 0))}</td>
-                  <td class="text-right">${formatCurrency(Object.values(summaryData.monthlySummary).reduce((sum, d) => sum + d.net_income, 0))}</td>
+                  <td class="text-right">${formatCurrency(Object.values(summaryData.periodSummary || {}).reduce((sum, d) => sum + d.gross_income, 0))}</td>
+                  <td class="text-right">${formatCurrency(Object.values(summaryData.periodSummary || {}).reduce((sum, d) => sum + d.total_deductions, 0))}</td>
+                  <td class="text-right">${formatCurrency(Object.values(summaryData.periodSummary || {}).reduce((sum, d) => sum + d.net_income, 0))}</td>
                 </tr>
               </tbody>
             </table>
@@ -185,16 +206,16 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
               <thead>
                 <tr>
                   <th>Income Type</th>
-                  ${Object.keys(summaryData.monthlySummary).map(p => `
-                    <th class="text-right">${p.replace('-', ' ')}</th>
+                  ${Object.keys(summaryData.periodSummary).map(p => `
+                    <th class="text-right">${p}</th>
                   `).join('')}
                   <th class="text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
                 ${Object.entries(summaryData.incomeBreakdown).map(([incomeType, amounts]) => {
-                  const row = Object.keys(summaryData.monthlySummary).map(month => `
-                    <td class="text-right">${amounts[month] ? formatCurrency(amounts[month]) : '-'}</td>
+                  const row = Object.keys(summaryData.periodSummary).map(period => `
+                    <td class="text-right">${amounts[period] ? formatCurrency(amounts[period]) : '-'}</td>
                   `).join('');
                   const total = formatCurrency(Object.values(amounts).reduce((sum, a) => sum + a, 0));
                   return `
@@ -213,8 +234,8 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
               <thead>
                 <tr>
                   <th>Deduction Type</th>
-                  ${Object.keys(summaryData.monthlySummary).map(p => `
-                    <th class="text-right">${p.replace('-', ' ')}</th>
+                  ${Object.keys(summaryData.periodSummary).map(p => `
+                    <th class="text-right">${p}</th>
                   `).join('')}
                   <th class="text-right">Total</th>
                   <th class="text-right">Current Balance</th>
@@ -225,10 +246,10 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
                   .filter(([key]) => !key.endsWith('_balance'))
                   .map(([deductionType, amounts]) => {
                     const balanceKey = `${deductionType}_balance`;
-                    const lastMonth = summaryData.months?.slice(-1)[0] || '';
-                    const balance = summaryData.deductionBreakdown[balanceKey]?.[lastMonth] || 0;
-                    const row = Object.keys(summaryData.monthlySummary).map(month => `
-                      <td class="text-right">${amounts[month] ? formatCurrency(amounts[month]) : '-'}</td>
+                    const lastPeriod = summaryData.periods?.slice(-1)[0] || '';
+                    const balance = summaryData.deductionBreakdown[balanceKey]?.[lastPeriod] || 0;
+                    const row = Object.keys(summaryData.periodSummary).map(period => `
+                      <td class="text-right">${amounts[period] ? formatCurrency(amounts[period]) : '-'}</td>
                     `).join('');
                     const total = formatCurrency(Object.values(amounts).reduce((sum, a) => sum + a, 0));
                     return `
@@ -253,7 +274,7 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
     `;
   }
 
-  // Landscape layout for 4+ months
+  // Landscape layout for 4+ periods
   return `
     <html>
       <head>
@@ -337,10 +358,10 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
           <div class="employee-info">
             ${summaryData.fullName}<br>
             ${summaryData.employmentType.charAt(0).toUpperCase() + summaryData.employmentType.slice(1)} Employee | Grade ${summaryData.salaryGrade}<br>
-            Period: ${months}
+            Period: ${periods}
           </div>
 
-          <h2>Monthly Summary</h2>
+          <h2>Period Summary</h2>
           <table>
             <thead>
               <tr>
@@ -351,9 +372,9 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
               </tr>
             </thead>
             <tbody>
-              ${Object.entries(summaryData.monthlySummary).map(([period, data]) => `
+              ${Object.entries(summaryData.periodSummary).map(([period, data]) => `
                 <tr>
-                  <td class="nowrap">${period.replace('-', ' ')}</td>
+                  <td class="nowrap">${period}</td>
                   <td class="text-right">${formatCurrency(data.gross_income)}</td>
                   <td class="text-right">${formatCurrency(data.total_deductions)}</td>
                   <td class="text-right">${formatCurrency(data.net_income)}</td>
@@ -361,9 +382,9 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
               `).join('')}
               <tr class="font-bold">
                 <td>TOTAL</td>
-                <td class="text-right">${formatCurrency(Object.values(summaryData.monthlySummary).reduce((sum, d) => sum + d.gross_income, 0))}</td>
-                <td class="text-right">${formatCurrency(Object.values(summaryData.monthlySummary).reduce((sum, d) => sum + d.total_deductions, 0))}</td>
-                <td class="text-right">${formatCurrency(Object.values(summaryData.monthlySummary).reduce((sum, d) => sum + d.net_income, 0))}</td>
+                <td class="text-right">${formatCurrency(Object.values(summaryData.periodSummary || {}).reduce((sum, d) => sum + d.gross_income, 0))}</td>
+                <td class="text-right">${formatCurrency(Object.values(summaryData.periodSummary || {}).reduce((sum, d) => sum + d.total_deductions, 0))}</td>
+                <td class="text-right">${formatCurrency(Object.values(summaryData.periodSummary || {}).reduce((sum, d) => sum + d.net_income, 0))}</td>
               </tr>
             </tbody>
           </table>
@@ -373,16 +394,16 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
             <thead>
               <tr>
                 <th>Income Type</th>
-                ${Object.keys(summaryData.monthlySummary).map(p => `
-                  <th class="text-right nowrap">${p.replace('-', ' ')}</th>
+                ${Object.keys(summaryData.periodSummary).map(p => `
+                  <th class="text-right nowrap">${p}</th>
                 `).join('')}
                 <th class="text-right">Total</th>
               </tr>
             </thead>
             <tbody>
               ${Object.entries(summaryData.incomeBreakdown).map(([incomeType, amounts]) => {
-                const row = Object.keys(summaryData.monthlySummary).map(month => `
-                  <td class="text-right">${amounts[month] ? formatCurrency(amounts[month]) : '-'}</td>
+                const row = Object.keys(summaryData.periodSummary).map(period => `
+                  <td class="text-right">${amounts[period] ? formatCurrency(amounts[period]) : '-'}</td>
                 `).join('');
                 const total = formatCurrency(Object.values(amounts).reduce((sum, a) => sum + a, 0));
                 return `
@@ -401,8 +422,8 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
             <thead>
               <tr>
                 <th>Deduction Type</th>
-                ${Object.keys(summaryData.monthlySummary).map(p => `
-                  <th class="text-right nowrap">${p.replace('-', ' ')}</th>
+                ${Object.keys(summaryData.periodSummary).map(p => `
+                  <th class="text-right nowrap">${p}</th>
                 `).join('')}
                 <th class="text-right">Total</th>
                 <th class="text-right">Current Balance</th>
@@ -413,10 +434,10 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
                 .filter(([key]) => !key.endsWith('_balance'))
                 .map(([deductionType, amounts]) => {
                   const balanceKey = `${deductionType}_balance`;
-                  const lastMonth = summaryData.months?.slice(-1)[0] || '';
-                  const balance = summaryData.deductionBreakdown[balanceKey]?.[lastMonth] || 0;
-                  const row = Object.keys(summaryData.monthlySummary).map(month => `
-                    <td class="text-right">${amounts[month] ? formatCurrency(amounts[month]) : '-'}</td>
+                  const lastPeriod = summaryData.periods?.slice(-1)[0] || '';
+                  const balance = summaryData.deductionBreakdown[balanceKey]?.[lastPeriod] || 0;
+                  const row = Object.keys(summaryData.periodSummary).map(period => `
+                    <td class="text-right">${amounts[period] ? formatCurrency(amounts[period]) : '-'}</td>
                   `).join('');
                   const total = formatCurrency(Object.values(amounts).reduce((sum, a) => sum + a, 0));
                   return `
@@ -444,7 +465,7 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
 const InsightsPanel = ({ 
   generatingInsights, 
   insights, 
-  selectedMonths, 
+  selectedPeriods, 
   payslip, 
   summaryReport, 
   getPayslipInsights, 
@@ -480,7 +501,7 @@ const InsightsPanel = ({
           <p>Get AI-powered analysis of your payroll data</p>
           <button
             onClick={async () => {
-              const dataToAnalyze = selectedMonths.length === 1 ? payslip : summaryReport;
+              const dataToAnalyze = selectedPeriods.length === 1 ? payslip : summaryReport;
               const result = await getPayslipInsights(dataToAnalyze);
               setInsights(result);
             }}
@@ -499,32 +520,38 @@ const ReportsPage = () => {
   const [payslip, setPayslip] = useState(null);
   const [summaryReport, setSummaryReport] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [selectedMonths, setSelectedMonths] = useState([]);
-  const [availableMonths, setAvailableMonths] = useState([]);
+  const [selectedPeriods, setSelectedPeriods] = useState([]);
+  const [availablePeriods, setAvailablePeriods] = useState([]);
   const [error, setError] = useState(null);
-  const [showMonthPicker, setShowMonthPicker] = useState(true);
+  const [showPeriodPicker, setShowPeriodPicker] = useState(true);
   const [insights, setInsights] = useState(null);
   const [generatingInsights, setGeneratingInsights] = useState(false);
 
-  const username = localStorage.getItem('username');
+  const storedUser = JSON.parse(localStorage.getItem('user'));
+  const username = storedUser?.username;
 
   useEffect(() => {
-    const fetchAvailableMonths = async () => {
+    const fetchAvailablePeriods = async () => {
       try {
         const response = await axios.get('https://backend2-2szh.onrender.com/available-months', {
           params: { username }
         });
-        setAvailableMonths(response.data);
+        // Transform the data to include period ranges
+        const transformed = response.data.map(period => ({
+          ...period,
+          display: `${period.month} ${period.period_start}-${period.period_end}, ${period.year}`
+        }));
+        setAvailablePeriods(transformed);
       } catch (err) {
-        console.error("Failed to fetch available months", err);
+        console.error("Failed to fetch available periods", err);
       }
     };
-    fetchAvailableMonths();
+    fetchAvailablePeriods();
   }, [username]);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (selectedMonths.length === 0) return;
+      if (selectedPeriods.length === 0) return;
 
       setLoading(true);
       setError(null);
@@ -532,23 +559,28 @@ const ReportsPage = () => {
       setSummaryReport(null);
 
       try {
-        if (selectedMonths.length === 1) {
-          const [month, year] = selectedMonths[0].split('-');
+        if (selectedPeriods.length === 1) {
+          const period = selectedPeriods[0];
+          console.log("📦 Fetching payslip with:", period);
           const response = await axios.get('https://backend2-2szh.onrender.com/payslip', {
             params: {
               username,
-              month,
-              year: parseInt(year)
+              month: period.month,
+              year: period.year,
+              period_start: period.period_start,
+              period_end: period.period_end
             }
           });
           setPayslip(response.data);
         } else {
           const response = await axios.post('https://backend2-2szh.onrender.com/api/payslip/summary', {
             username,
-            selected_months: selectedMonths.map(m => {
-              const [month, year] = m.split('-');
-              return { month, year: parseInt(year) };
-            })
+            selected_periods: selectedPeriods.map(p => ({
+              month: p.month,
+              year: p.year,
+              period_start: p.period_start,
+              period_end: p.period_end
+            }))
           });
           setSummaryReport(response.data);
         }
@@ -556,8 +588,8 @@ const ReportsPage = () => {
         console.error("Failed to fetch data", err);
         if (err.response?.status === 404) {
           const detail = err.response?.data?.detail;
-          if (detail?.available_months) {
-            setAvailableMonths(detail.available_months);
+          if (detail?.available_periods) {
+            setAvailablePeriods(detail.available_periods);
           }
           setError(detail?.error || "No data found for selected period");
         } else {
@@ -569,7 +601,7 @@ const ReportsPage = () => {
     };
 
     fetchData();
-  }, [selectedMonths, username]);
+  }, [selectedPeriods, username]);
 
   const getPayslipInsights = async (payslipData) => {
     try {
@@ -593,8 +625,8 @@ const ReportsPage = () => {
 
   const handlePrint = () => {
   const printWindow = window.open('', '_blank');
-  
-  if (selectedMonths.length === 1 && payslip) {
+
+  if (selectedPeriods.length === 1 && payslip) {
     printWindow.document.write(`
       <html>
         <head>
@@ -614,7 +646,7 @@ const ReportsPage = () => {
         </body>
       </html>
     `);
-  } else if (selectedMonths.length > 1 && summaryReport) {
+  } else if (selectedPeriods.length > 1 && summaryReport && summaryReport.periodSummary) {
     printWindow.document.write(generateSummaryPDF(summaryReport, formatCurrency));
   } else {
     printWindow.close();
@@ -629,22 +661,36 @@ const ReportsPage = () => {
   }, 500);
 };
 
-
-  const handleMonthSelection = (e, monthEntry) => {
-    const monthKey = `${monthEntry.month}-${monthEntry.year}`;
+  const handlePeriodSelection = (e, periodEntry) => {
+    const periodKey = `${periodEntry.month}-${periodEntry.year}-${periodEntry.period_start}-${periodEntry.period_end}`;
     if (e.target.checked) {
-      if (selectedMonths.length < 12) {
-        setSelectedMonths([...selectedMonths, monthKey]);
+      if (selectedPeriods.length < 12) {
+        setSelectedPeriods([...selectedPeriods, periodEntry]);
       }
     } else {
-      setSelectedMonths(selectedMonths.filter(m => m !== monthKey));
+      setSelectedPeriods(selectedPeriods.filter(p => 
+        `${p.month}-${p.year}-${p.period_start}-${p.period_end}` !== periodKey
+      ));
     }
   };
 
-  const isMonthSelected = (monthEntry) => {
-    return selectedMonths.includes(`${monthEntry.month}-${monthEntry.year}`);
+  const isPeriodSelected = (periodEntry) => {
+    return selectedPeriods.some(p => 
+      p.month === periodEntry.month && 
+      p.year === periodEntry.year && 
+      p.period_start === periodEntry.period_start && 
+      p.period_end === periodEntry.period_end
+    );
   };
+  // State declarations (place near top of your component)
+  const [yearFilter, setYearFilter] = useState('');
+  const [fromMonth, setFromMonth] = useState('');
+  const [toMonth, setToMonth] = useState('');
 
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
   const formatCurrency = (amount) => {
     return `₱${amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
@@ -675,21 +721,21 @@ const ReportsPage = () => {
           <p className="text-gray-600">Generate and view your payroll summaries and detailed reports</p>
         </div>
 
-        {/* Month Selection Card */}
+        {/* Period Selection Card */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 mb-8 overflow-hidden">
           <div 
             className="p-6 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => setShowMonthPicker(!showMonthPicker)}
+            onClick={() => setShowPeriodPicker(!showPeriodPicker)}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Calendar className="w-6 h-6 text-blue-600" />
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Select Report Period</h3>
-                  <p className="text-sm text-gray-600">Choose up to 12 months to include in your report</p>
+                  <p className="text-sm text-gray-600">Choose up to 12 periods to include in your report</p>
                 </div>
               </div>
-              {showMonthPicker ? (
+              {showPeriodPicker ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
               ) : (
                 <ChevronDown className="w-5 h-5 text-gray-400" />
@@ -697,61 +743,132 @@ const ReportsPage = () => {
             </div>
           </div>
           
-          {showMonthPicker && (
-            <div className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
-                {availableMonths.map((monthEntry) => (
-                  <label
-                    key={`${monthEntry.month}-${monthEntry.year}`}
-                    className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:bg-blue-50 ${
-                      isMonthSelected(monthEntry)
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-blue-300'
-                    } ${
-                      selectedMonths.length >= 12 && !isMonthSelected(monthEntry)
-                        ? 'opacity-50 cursor-not-allowed'
-                        : ''
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={isMonthSelected(monthEntry)}
-                      onChange={(e) => handleMonthSelection(e, monthEntry)}
-                      disabled={selectedMonths.length >= 12 && !isMonthSelected(monthEntry)}
-                    />
-                    <div className={`w-4 h-4 border-2 rounded mr-3 flex items-center justify-center ${
-                      isMonthSelected(monthEntry) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                    }`}>
-                      {isMonthSelected(monthEntry) && (
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="font-medium">{`${monthEntry.month} ${monthEntry.year}`}</span>
-                  </label>
-                ))}
-              </div>
-              
-              {selectedMonths.length > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Eye className="w-4 h-4 text-blue-600" />
-                    <span className="font-medium text-blue-700">Selected Periods:</span>
+              {showPeriodPicker && (
+              <div className="p-6">
+                {/* Filters */}
+                <div className="mb-6 flex flex-wrap gap-4 items-end">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Filter by Year</label>
+                    <select
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                      value={yearFilter}
+                      onChange={(e) => setYearFilter(e.target.value)}
+                    >
+                      <option value="">All</option>
+                      {[...new Set(availablePeriods.map(p => p.year))]
+                        .sort((a, b) => b - a)
+                        .map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedMonths.map(month => (
-                      <span key={month} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                        {month.replace('-', ' ')}
-                      </span>
-                    ))}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">From Month</label>
+                    <select
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                      value={fromMonth}
+                      onChange={(e) => setFromMonth(e.target.value)}
+                    >
+                      <option value="">--</option>
+                      {months.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">To Month</label>
+                    <select
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                      value={toMonth}
+                      onChange={(e) => setToMonth(e.target.value)}
+                    >
+                      <option value="">--</option>
+                      {months.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <button
+                      onClick={() => {
+                        setYearFilter('');
+                        setFromMonth('');
+                        setToMonth('');
+                      }}
+                      className="text-sm mt-1 px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700"
+                    >
+                      Clear Filters
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+
+                {/* Payslip Selection Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                  {availablePeriods
+                    .filter(p => {
+                      const matchesYear = yearFilter ? p.year === parseInt(yearFilter) : true;
+
+                      const monthIndex = months.indexOf(p.month);
+                      const fromIndex = fromMonth ? months.indexOf(fromMonth) : 0;
+                      const toIndex = toMonth ? months.indexOf(toMonth) : 11;
+                      const matchesMonth = fromMonth && toMonth
+                        ? monthIndex >= fromIndex && monthIndex <= toIndex
+                        : true;
+
+                      return matchesYear && matchesMonth;
+                    })
+                    .map((periodEntry) => (
+                      <label
+                        key={`${periodEntry.month}-${periodEntry.year}-${periodEntry.period_start}-${periodEntry.period_end}`}
+                        className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:bg-blue-50 ${
+                          isPeriodSelected(periodEntry)
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 hover:border-blue-300'
+                        } ${
+                          selectedPeriods.length >= 12 && !isPeriodSelected(periodEntry)
+                            ? 'opacity-50 cursor-not-allowed'
+                            : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={isPeriodSelected(periodEntry)}
+                          onChange={(e) => handlePeriodSelection(e, periodEntry)}
+                          disabled={selectedPeriods.length >= 12 && !isPeriodSelected(periodEntry)}
+                        />
+                        <div className={`w-4 h-4 border-2 rounded mr-3 flex items-center justify-center ${
+                          isPeriodSelected(periodEntry) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                        }`}>
+                          {isPeriodSelected(periodEntry) && (
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                        <span className="font-medium">{periodEntry.display}</span>
+                      </label>
+                    ))}
+                </div>
+
+                {/* Selected Period Display */}
+                {selectedPeriods.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Eye className="w-4 h-4 text-blue-600" />
+                      <span className="font-medium text-blue-700">Selected Periods:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedPeriods.map(period => (
+                        <span key={`${period.month}-${period.year}-${period.period_start}-${period.period_end}`} 
+                          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                          {period.display}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
         {loading && (
           <div className="bg-white rounded-xl shadow-lg p-12 text-center">
@@ -771,8 +888,8 @@ const ReportsPage = () => {
           </div>
         )}
 
-        {/* Single Month Payslip View */}
-        {payslip && selectedMonths.length === 1 && (
+        {/* Single Period Payslip View */}
+        {payslip && selectedPeriods.length === 1 && (
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
@@ -857,18 +974,12 @@ const ReportsPage = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {payslip.bonuses.map((b, i) => (
-                          <tr key={i} className="hover:bg-white transition-colors">
-                            <td className="p-4 text-gray-900">{b.label}</td>
-                            <td className="p-4 text-right font-semibold text-green-600">{formatCurrency(b.amount)}</td>
+                         {payslip.bonuses.map((b, i) => (
+                          <tr key={i} className="hover:bg-white">
+                            <td className="p-4 text-gray-800">{b.label}</td>
+                            <td className="p-4 text-right text-gray-800">{formatCurrency(b.amount)}</td>
                           </tr>
                         ))}
-                        <tr className="bg-green-50 font-semibold">
-                          <td className="p-4 text-gray-900">Total Bonuses</td>
-                          <td className="p-4 text-right text-green-700">
-                            {formatCurrency(payslip.bonuses.reduce((sum, b) => sum + b.amount, 0))}
-                          </td>
-                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -876,55 +987,65 @@ const ReportsPage = () => {
               )}
 
               {/* Deductions Table */}
-              <div className="mb-8">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Calculator className="w-5 h-5 text-red-600" />
-                  Deductions
-                </h2>
-                <div className="bg-gray-50 rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="text-left p-4 font-semibold text-gray-700">Deduction Type</th>
-                        <th className="text-right p-4 font-semibold text-gray-700">Amount</th>
-                        <th className="text-right p-4 font-semibold text-gray-700">Remaining Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {payslip.deductions?.length > 0 ? (
-                        payslip.deductions.map((d, i) => (
-                          <tr key={i} className="hover:bg-white transition-colors">
-                            <td className="p-4 text-gray-900">{d.label}</td>
-                            <td className="p-4 text-right font-semibold text-red-600">{formatCurrency(d.amount)}</td>
-                            <td className="p-4 text-right font-medium text-gray-600">
-                              {d.balance !== undefined ? formatCurrency(d.balance) : 'N/A'}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
+                <div className="mb-8">
+                  <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Calculator className="w-5 h-5 text-red-600" />
+                    Deductions
+                  </h2>
+                  <div className="bg-gray-50 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-100">
                         <tr>
-                          <td colSpan={3} className="p-4 text-center text-gray-500 italic">No deductions this period</td>
+                          <th className="text-left p-4 font-semibold text-gray-700">Deduction Type</th>
+                          <th className="text-right p-4 font-semibold text-gray-700">Amount</th>
+                          <th className="text-right p-4 font-semibold text-gray-700">Remaining Balance</th>
                         </tr>
-                      )}
-                      <tr className="bg-red-50 font-semibold">
-                        <td className="p-4 text-gray-900">Total Deductions</td>
-                        <td className="p-4 text-right text-red-700">
-                          {formatCurrency(payslip.deductions?.reduce((sum, d) => sum + d.amount, 0) || 0)}
-                        </td>
-                        <td></td>
-                      </tr>
-                      <tr className="bg-blue-50 font-bold text-lg">
-                        <td className="p-4 text-gray-900">NET PAY</td>
-                        <td className="p-4 text-right text-blue-700">{formatCurrency(payslip.netPay)}</td>
-                        <td></td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {payslip.deductions?.length > 0 ? (
+                          <>
+                            {payslip.deductions.map((d, i) => (
+                              <tr key={i} className="hover:bg-white">
+                                <td className="p-4 text-gray-800">{d.label}</td>
+                                <td className="p-4 text-right text-gray-800">{formatCurrency(d.amount)}</td>
+                                <td className="p-4 text-right text-gray-800">
+                                  {d.balance !== undefined ? formatCurrency(d.balance) : 'N/A'}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr className="font-bold bg-white">
+                              <td className="p-4 text-gray-900">Total Deductions</td>
+                              <td className="p-4 text-right text-gray-900">
+                                {formatCurrency(payslip.deductions.reduce((sum, d) => sum + d.amount, 0))}
+                              </td>
+                              <td></td>
+                            </tr>
+                          </>
+                        ) : (
+                          <tr>
+                            <td colSpan={3} className="p-4 text-center text-gray-500">No deductions this period</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-
-              {/* Action Button and Insights */}
-              <div className="flex flex-col gap-4">
+              {/* Net Pay */}
+                <div className="mb-8">
+                  <div className="bg-blue-50 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <tbody>
+                        <tr className="bg-blue-50 font-bold text-lg">
+                          <td className="p-4 text-gray-900">NET PAY</td>
+                          <td className="p-4 text-right text-blue-700">{formatCurrency(payslip.netPay)}</td>
+                          <td></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              {/* Actions and Insights for Single Payslip */}
+              <div className="mt-8 flex flex-col gap-4">
                 <div className="flex justify-center">
                   <button
                     onClick={handlePrint}
@@ -934,11 +1055,11 @@ const ReportsPage = () => {
                     Print Payslip
                   </button>
                 </div>
-                
+
                 <InsightsPanel 
                   generatingInsights={generatingInsights}
                   insights={insights}
-                  selectedMonths={selectedMonths}
+                  selectedPeriods={selectedPeriods}
                   payslip={payslip}
                   summaryReport={summaryReport}
                   getPayslipInsights={getPayslipInsights}
@@ -948,9 +1069,8 @@ const ReportsPage = () => {
             </div>
           </div>
         )}
-
-        {/* Summary Report View */}
-        {summaryReport && selectedMonths.length > 1 && (
+                {/* Summary Report View */}
+        {summaryReport && selectedPeriods.length > 1 && (
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
@@ -966,7 +1086,7 @@ const ReportsPage = () => {
                   <p className="text-indigo-100 text-sm">Total Net Pay</p>
                   <p className="text-3xl font-bold">
                     {formatCurrency(
-                      Object.values(summaryReport.monthlySummary).reduce((sum, data) => sum + data.net_income, 0)
+                      Object.values(summaryReport.periodSummary || {}).reduce((sum, data) => sum + data.net_income, 0)
                     )}
                   </p>
                 </div>
@@ -978,7 +1098,7 @@ const ReportsPage = () => {
               <div className="mb-8">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-blue-600" />
-                  Monthly Summary
+                  Period Summary
                 </h2>
                 <div className="bg-gray-50 rounded-lg overflow-hidden">
                   <table className="w-full">
@@ -991,9 +1111,9 @@ const ReportsPage = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {Object.entries(summaryReport.monthlySummary).map(([period, data]) => (
+                      {Object.entries(summaryReport.periodSummary || {}).map(([period, data]) => (
                         <tr key={period} className="hover:bg-white transition-colors">
-                          <td className="p-4 font-medium text-gray-900">{period.replace('-', ' ')}</td>
+                          <td className="p-4 font-medium text-gray-900">{period}</td>
                           <td className="p-4 text-right font-semibold text-green-600">{formatCurrency(data.gross_income)}</td>
                           <td className="p-4 text-right font-semibold text-red-600">{formatCurrency(data.total_deductions)}</td>
                           <td className="p-4 text-right font-semibold text-blue-600">{formatCurrency(data.net_income)}</td>
@@ -1003,17 +1123,17 @@ const ReportsPage = () => {
                         <td className="p-4 text-gray-900">TOTAL</td>
                         <td className="p-4 text-right text-green-700">
                           {formatCurrency(
-                            Object.values(summaryReport.monthlySummary).reduce((sum, data) => sum + data.gross_income, 0)
+                            Object.values(summaryReport.periodSummary || {}).reduce((sum, data) => sum + data.gross_income, 0)
                           )}
                         </td>
                         <td className="p-4 text-right text-red-700">
                           {formatCurrency(
-                            Object.values(summaryReport.monthlySummary).reduce((sum, data) => sum + data.total_deductions, 0)
+                            Object.values(summaryReport.periodSummary || {}).reduce((sum, data) => sum + data.total_deductions, 0)
                           )}
                         </td>
                         <td className="p-4 text-right text-blue-700">
                           {formatCurrency(
-                            Object.values(summaryReport.monthlySummary).reduce((sum, data) => sum + data.net_income, 0)
+                            Object.values(summaryReport.periodSummary || {}).reduce((sum, data) => sum + data.net_income, 0)
                           )}
                         </td>
                       </tr>
@@ -1033,9 +1153,9 @@ const ReportsPage = () => {
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="text-left p-4 font-semibold text-gray-700 sticky left-0 bg-gray-100">Income Type</th>
-                        {Object.keys(summaryReport.monthlySummary).map(period => (
+                        {Object.keys(summaryReport.periodSummary || {}).map(period => (
                           <th key={`income-${period}`} className="text-right p-4 font-semibold text-gray-700 min-w-[120px]">
-                            {period.split('-')[0]} {period.split('-')[1]}
+                            {period}
                           </th>
                         ))}
                         <th className="text-right p-4 font-semibold text-gray-700 min-w-[120px]">Total</th>
@@ -1045,7 +1165,7 @@ const ReportsPage = () => {
                       {Object.entries(summaryReport.incomeBreakdown).map(([incomeType, amounts]) => (
                         <tr key={incomeType} className="hover:bg-white transition-colors">
                           <td className="p-4 font-medium text-gray-900 sticky left-0 bg-gray-50">{incomeType}</td>
-                          {Object.keys(summaryReport.monthlySummary).map(period => (
+                          {Object.keys(summaryReport.periodSummary || {}).map(period => (
                             <td key={`${incomeType}-${period}`} className="p-4 text-right">
                               {amounts[period] ? (
                                 <span className="font-semibold text-green-600">{formatCurrency(amounts[period])}</span>
@@ -1075,9 +1195,9 @@ const ReportsPage = () => {
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="text-left p-4 font-semibold text-gray-700 sticky left-0 bg-gray-100">Deduction Type</th>
-                        {Object.keys(summaryReport.monthlySummary).map(period => (
+                        {Object.keys(summaryReport.periodSummary || {}).map(period => (
                           <th key={`deduction-${period}`} className="text-right p-4 font-semibold text-gray-700 min-w-[120px]">
-                            {period.replace('-', ' ')}
+                            {period}
                           </th>
                         ))}
                         <th className="text-right p-4 font-semibold text-gray-700">Total</th>
@@ -1089,13 +1209,13 @@ const ReportsPage = () => {
                         .filter(([key]) => !key.endsWith('_balance'))
                         .map(([deductionType, amounts]) => {
                           const balanceKey = `${deductionType}_balance`;
-                          const lastMonth = summaryReport.months?.slice(-1)[0] || '';
-                          const balance = summaryReport.deductionBreakdown[balanceKey]?.[lastMonth] || 0;
+                          const lastPeriod = summaryReport.periods?.slice(-1)[0] || '';
+                          const balance = summaryReport.deductionBreakdown[balanceKey]?.[lastPeriod] || 0;
                           
                           return (
                             <tr key={deductionType} className="hover:bg-white transition-colors">
                               <td className="p-4 font-medium text-gray-900 sticky left-0 bg-gray-50">{deductionType}</td>
-                              {Object.keys(summaryReport.monthlySummary).map(period => (
+                              {Object.keys(summaryReport.periodSummary || {}).map(period => (
                                 <td key={`${deductionType}-${period}`} className="p-4 text-right">
                                   {amounts[period] ? (
                                     <span className="font-semibold text-red-600">
@@ -1137,7 +1257,7 @@ const ReportsPage = () => {
                 <InsightsPanel 
                   generatingInsights={generatingInsights}
                   insights={insights}
-                  selectedMonths={selectedMonths}
+                  selectedPeriods={selectedPeriods}
                   payslip={payslip}
                   summaryReport={summaryReport}
                   getPayslipInsights={getPayslipInsights}
@@ -1148,6 +1268,7 @@ const ReportsPage = () => {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 };
