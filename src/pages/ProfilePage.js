@@ -23,6 +23,11 @@ const ProfilePage = () => {
     loanOther: {}
   });
 
+  const [originalSalaryValues, setOriginalSalaryValues] = useState({
+  salaryGrade: '',
+  baseSalaryPerHour: 0
+  });
+
   const [editMode, setEditMode] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -44,7 +49,9 @@ const ProfilePage = () => {
     const fetchUserProfile = async () => {
       setIsLoading(true);
       try {
-        const username = localStorage.getItem('username');
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        const username = storedUser?.username;
+
         if (!username) {
           setErrorMessage('Username not found');
           setIsLoading(false);
@@ -121,6 +128,11 @@ const ProfilePage = () => {
           }
         });
 
+        setOriginalSalaryValues({
+          salaryGrade: payrollProfile?.salaryGrade || '12',
+          baseSalaryPerHour: payrollProfile?.baseSalaryPerHour || 0
+        });
+
         console.log('Final parsed loans and loanOther:', {
           loans: filteredLoans,
           loanOther: {
@@ -170,61 +182,91 @@ const ProfilePage = () => {
 }
 };
 
+const [salaryChangeMessage, setSalaryChangeMessage] = useState('');
+const [showSalaryModal, setShowSalaryModal] = useState(false);
+
   const handleSave = async () => {
-    setIsLoading(true);
-    try {
-      const validLoans = userData.loans.filter(
-        loan => loan.name && loan.amount > 0 && loan.startMonth && loan.startYear
-      );
+  setIsLoading(true);
+  try {
+    const validLoans = userData.loans.filter(
+      loan => loan.name && loan.amount > 0 && loan.startMonth && loan.startYear
+    );
 
-      const validBonuses = userData.bonuses.filter(
-        bonus => bonus.name && bonus.amount > 0 && bonus.type
-      );
+    const validBonuses = userData.bonuses.filter(
+      bonus => bonus.name && bonus.amount > 0 && bonus.type
+    );
 
-      const payload = {
-        username: userData.username,
-        email: userData.email,
-        full_name: userData.fullName,
-        payrollProfile: {
-          employment_type: userData.employmentType,
-          salaryGrade: userData.salaryGrade,  
-          baseMonthlySalary: userData.baseMonthlySalary,
-          baseSalaryPerHour: userData.baseSalaryPerHour,
-          gsisDeduction: userData.gsisDeduction,
-          philhealthDeduction: userData.philhealthDeduction,
-          taxDeduction: userData.taxDeduction,
-          leaveCredits: userData.leaveCredits,
-          bonuses: validBonuses,
-          loans: validLoans,
-          bonusOther: userData.bonusOther?.name ? userData.bonusOther : null,
-          loanOther: userData.loanOther?.name ? {
-            name: userData.loanOther.name,
-            amount: userData.loanOther.amount,
-            durationMonths: userData.loanOther.durationMonths,
-            startMonth: userData.loanOther.startDate?.split('-')[1],
-            startYear: userData.loanOther.startDate?.split('-')[0]
-          } : null
-        }
-      };
-
-      if (userData.password) {
-        payload.password = userData.password;
+    const payload = {
+      username: userData.username,
+      email: userData.email,
+      full_name: userData.fullName,
+      payrollProfile: {
+        employment_type: userData.employmentType,
+        salaryGrade: userData.salaryGrade,
+        baseMonthlySalary: userData.baseMonthlySalary,
+        baseSalaryPerHour: userData.baseSalaryPerHour,
+        gsisDeduction: userData.gsisDeduction,
+        philhealthDeduction: userData.philhealthDeduction,
+        taxDeduction: userData.taxDeduction,
+        leaveCredits: userData.leaveCredits,
+        bonuses: validBonuses,
+        loans: validLoans,
+        bonusOther: userData.bonusOther?.name ? userData.bonusOther : null,
+        loanOther: userData.loanOther?.name ? {
+          name: userData.loanOther.name,
+          amount: userData.loanOther.amount,
+          durationMonths: userData.loanOther.durationMonths,
+          startMonth: userData.loanOther.startDate?.split('-')[1],
+          startYear: userData.loanOther.startDate?.split('-')[0]
+        } : null
       }
+    };
 
-      await axios.put('https://backend2-2szh.onrender.com/api/user/profile', payload);
-
-      setSuccessMessage('Profile updated successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-      setEditMode(false);
-      setUserData(prev => ({ ...prev, password: '' }));
-    } catch (err) {
-      console.error('Failed to save profile:', err);
-      setErrorMessage(err.response?.data?.detail || 'Failed to update profile');
-      setTimeout(() => setErrorMessage(''), 3000);
-    } finally {
-      setIsLoading(false);
+    if (userData.password) {
+      payload.password = userData.password;
     }
-  };
+
+    // 🔔 Notification logic
+    let notification = '';
+    if (
+      userData.employmentType === 'irregular' &&
+      originalSalaryValues.baseSalaryPerHour !== userData.baseSalaryPerHour
+    ) {
+      notification = `Your base salary per hour changed from ₱${originalSalaryValues.baseSalaryPerHour} to ₱${userData.baseSalaryPerHour}`;
+    } else if (
+      userData.employmentType === 'regular' &&
+      originalSalaryValues.salaryGrade !== userData.salaryGrade
+    ) {
+      notification = `Your salary grade changed from ${originalSalaryValues.salaryGrade} to ${userData.salaryGrade}`;
+    }
+
+    await axios.put('https://backend2-2szh.onrender.com/api/user/profile', payload);
+
+    // Show notification before clearing edit mode
+    if (notification) {
+      setSalaryChangeMessage(notification);
+      setShowSalaryModal(true);
+    }
+
+    setSuccessMessage('Profile updated successfully!');
+    setTimeout(() => setSuccessMessage(''), 3000);
+    setEditMode(false);
+    setUserData(prev => ({ ...prev, password: '' }));
+
+    // 🧠 Update tracking values
+    setOriginalSalaryValues({
+      salaryGrade: userData.salaryGrade,
+      baseSalaryPerHour: userData.baseSalaryPerHour
+    });
+
+  } catch (err) {
+    console.error('Failed to save profile:', err);
+    setErrorMessage(err.response?.data?.detail || 'Failed to update profile');
+    setTimeout(() => setErrorMessage(''), 3000);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleCancel = () => {
     setEditMode(false);
@@ -346,13 +388,13 @@ return (
                 onChange={handleInputChange}
                 className="w-full p-4 border-2 border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-indigo-500 text-lg"
               >
-                <option value="regular">Regular</option>
-                <option value="irregular">Irregular</option>
+                <option value="regular">Permanent</option>
+                <option value="irregular">COS</option>
               </select>
             ) : (
               <div className="p-4">
                 <span className={`inline-block px-4 py-2 rounded-full text-sm font-semibold text-white ${userData.employmentType === 'regular' ? 'bg-green-500' : 'bg-blue-500'}`}>
-                  {userData.employmentType}
+                  {userData.employmentType === 'regular' ? 'Permanent' : 'COS'}
                 </span>
               </div>
             )}
@@ -828,6 +870,22 @@ return (
         </button>
       )}
     </div>
+    {showSalaryModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-lg w-full">
+          <h2 className="text-xl font-bold mb-4 text-indigo-600">Salary Update Notice</h2>
+          <p className="text-gray-800 text-lg mb-6">{salaryChangeMessage}</p>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => setShowSalaryModal(false)}
+              className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </div>
 );
 };
