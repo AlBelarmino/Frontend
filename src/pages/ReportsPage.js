@@ -2,8 +2,15 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Calendar, FileText, Download, Clock, DollarSign, TrendingUp, Building, Calculator, Eye, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 
+
+
+const formatEmploymentType = (type) => {
+  if (type === "regular") return "Permanent";
+  if (type === "irregular") return "COS";
+  return type; // fallback for any other values
+};
+
 const generatePayslipPDF = (payslipData, formatCurrency) => {
-  
   return `
     <div style="padding: 20px; font-family: Arial, sans-serif;">
       <!-- Header -->
@@ -14,7 +21,7 @@ const generatePayslipPDF = (payslipData, formatCurrency) => {
       <!-- Left Info Section -->
       <div style="margin-bottom: 20px;">
         <p><strong>Payroll Period:</strong> ${payslipData.period}</p>
-        <p><strong>Employment Type:</strong> ${payslipData.employmentType.charAt(0).toUpperCase() + payslipData.employmentType.slice(1)}</p>
+        <p><strong>Employment Type:</strong> ${formatEmploymentType(payslipData.employmentType)}</p>
         ${payslipData.employmentType === "regular"
         ? `<p><strong>Salary Grade:</strong> ${payslipData.salaryGrade || ''}</p>`
         : ''}
@@ -169,7 +176,7 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
             <h1>Payroll Summary Report</h1>
             <div class="employee-info">
               ${summaryData.fullName}<br>
-              ${summaryData.employmentType.charAt(0).toUpperCase() + summaryData.employmentType.slice(1)} Employee | Grade ${summaryData.salaryGrade}<br>
+              ${formatEmploymentType(summaryData.employmentType)} Employee | Grade ${summaryData.salaryGrade}<br>
               Period: ${periods}
             </div>
 
@@ -357,7 +364,7 @@ const generateSummaryPDF = (summaryData, formatCurrency) => {
           <h1>Payroll Summary Report</h1>
           <div class="employee-info">
             ${summaryData.fullName}<br>
-            ${summaryData.employmentType.charAt(0).toUpperCase() + summaryData.employmentType.slice(1)} Employee | Grade ${summaryData.salaryGrade}<br>
+            ${formatEmploymentType(summaryData.employmentType)} Employee | Grade ${summaryData.salaryGrade}<br>
             Period: ${periods}
           </div>
 
@@ -898,7 +905,7 @@ const ReportsPage = () => {
                   <h1 className="text-2xl font-bold mb-1">{payslip.fullName}</h1>
                   <p className="text-blue-100 flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    {payslip.period} | {payslip.employmentType.charAt(0).toUpperCase() + payslip.employmentType.slice(1)} Employee
+                    {payslip.period} | {formatEmploymentType(payslip.employmentType)} Employee
                   </p>
                 </div>
                 <div className="text-right">
@@ -1079,7 +1086,7 @@ const ReportsPage = () => {
                   <h1 className="text-2xl font-bold mb-1">{summaryReport.fullName}</h1>
                   <p className="text-indigo-100 flex items-center gap-2">
                     <Building className="w-4 h-4" />
-                    {summaryReport.employmentType.charAt(0).toUpperCase() + summaryReport.employmentType.slice(1)} Employee | Grade {summaryReport.salaryGrade}
+                    {formatEmploymentType(summaryReport.employmentType)} Employee | Grade {summaryReport.salaryGrade}
                   </p>
                 </div>
                 <div className="text-right">
